@@ -37,23 +37,55 @@ st.divider()
 left, right = st.columns(2)
 
 with left:
-    order_value = st.number_input("Order Value (₹)", min_value=0.0, value=1499.0)
-    quantity = st.number_input("Quantity", min_value=1, value=2)
-    discount_pct = st.slider("Discount %", 0, 100, 15)
+    order_value = st.number_input(
+        "Order Value (₹)",
+        min_value=0.0,
+        value=None,
+        placeholder="Enter order value"
+    )
+
+    quantity = st.number_input(
+        "Quantity",
+        min_value=1,
+        value=None,
+        placeholder="Enter quantity"
+    )
+
+    discount_pct = st.slider("Discount %", 0, 100, 0)
+
     payment_method = st.selectbox(
         "Payment Method",
-        [0,1,2,3,4],
-        format_func=lambda x: ["UPI","COD","Credit Card","Debit Card","Wallet"][x]
+        ["Select","UPI","COD","Credit Card","Debit Card","Wallet"],
+        index=0
     )
-    customer_state = st.number_input("Customer State (Encoded)", min_value=0, value=4)
-    delivery_zone = st.number_input("Delivery Zone", min_value=0, value=2)
-    customer_order_count = st.number_input("Customer Order Count", min_value=0, value=8)
+
+    customer_state = st.number_input(
+        "Customer State (Encoded)",
+        min_value=0,
+        value=None,
+        placeholder="Enter state code"
+    )
+
+    delivery_zone = st.number_input(
+        "Delivery Zone",
+        min_value=0,
+        value=None,
+        placeholder="Enter delivery zone"
+    )
+
+    customer_order_count = st.number_input(
+        "Customer Order Count",
+        min_value=0,
+        value=None,
+        placeholder="Enter order count"
+    )
+
     customer_previous_rto_rate = st.number_input(
         "Previous RTO Rate",
         min_value=0.0,
         max_value=1.0,
-        value=0.12,
-        step=0.01
+        value=None,
+        placeholder="0.00"
     )
 
 with right:
@@ -61,20 +93,82 @@ with right:
         "Seller RTO Rate",
         min_value=0.0,
         max_value=1.0,
-        value=0.05,
-        step=0.01
+        value=None,
+        placeholder="0.00"
     )
-    distance = st.number_input("Distance (km)", min_value=0.0, value=85.0)
-    delivery_days = st.number_input("Estimated Delivery Days", min_value=1, value=4)
-    seller_rating = st.slider("Seller Rating", 1.0, 5.0, 4.5)
-    customer_account_age = st.number_input("Customer Account Age (Days)", min_value=0, value=365)
-    cod_amount = st.number_input("COD Amount (₹)", min_value=0.0, value=1499.0)
-    is_weekend = st.selectbox("Weekend Order", [0,1], format_func=lambda x: "Yes" if x else "No")
-    night_order = st.selectbox("Night Order", [0,1], format_func=lambda x: "Yes" if x else "No")
+
+    distance = st.number_input(
+        "Distance (km)",
+        min_value=0.0,
+        value=None,
+        placeholder="Enter distance"
+    )
+
+    delivery_days = st.number_input(
+        "Estimated Delivery Days",
+        min_value=1,
+        value=None,
+        placeholder="Enter delivery days"
+    )
+
+    seller_rating = st.slider("Seller Rating", 1.0, 5.0, 3.0)
+
+    customer_account_age = st.number_input(
+        "Customer Account Age (Days)",
+        min_value=0,
+        value=None,
+        placeholder="Enter account age"
+    )
+
+    cod_amount = st.number_input(
+        "COD Amount (₹)",
+        min_value=0.0,
+        value=None,
+        placeholder="Enter COD amount"
+    )
+
+    is_weekend = st.selectbox(
+        "Weekend Order",
+        ["Select","No","Yes"],
+        index=0
+    )
+
+    night_order = st.selectbox(
+        "Night Order",
+        ["Select","No","Yes"],
+        index=0
+    )
 
 st.divider()
 
 if st.button("🔍 Predict RTO Risk", use_container_width=True):
+
+    required_numbers = [
+        order_value, quantity, customer_state, delivery_zone,
+        customer_order_count, customer_previous_rto_rate,
+        seller_previous_rto_rate, distance,
+        delivery_days, customer_account_age, cod_amount
+    ]
+
+    if (
+        any(v is None for v in required_numbers)
+        or payment_method == "Select"
+        or is_weekend == "Select"
+        or night_order == "Select"
+    ):
+        st.warning("⚠ Please complete all fields before prediction.")
+        st.stop()
+
+    payment_encoding = {
+        "UPI":0,
+        "COD":1,
+        "Credit Card":2,
+        "Debit Card":3,
+        "Wallet":4
+    }
+
+    weekend = 1 if is_weekend == "Yes" else 0
+    night = 1 if night_order == "Yes" else 0
 
     sample = pd.DataFrame([{
         "order_id":0,
@@ -85,7 +179,7 @@ if st.button("🔍 Predict RTO Risk", use_container_width=True):
         "quantity":quantity,
         "product_category":0,
         "discount_pct":discount_pct,
-        "payment_method":payment_method,
+        "payment_method":payment_encoding[payment_method],
         "customer_state":customer_state,
         "delivery_zone":delivery_zone,
         "customer_order_count":customer_order_count,
@@ -104,14 +198,14 @@ if st.button("🔍 Predict RTO Risk", use_container_width=True):
         "address_order_count":1,
         "distance_seller_customer_km":distance,
         "estimated_delivery_days":delivery_days,
-        "is_weekend":is_weekend,
+        "is_weekend":weekend,
         "is_holiday":0,
         "seller_rating":seller_rating,
         "customer_account_age_days":customer_account_age,
         "cod_amount":cod_amount,
         "address_change_count_30d":0,
         "failed_delivery_attempts_previous":0,
-        "night_order":night_order
+        "night_order":night
     }])
 
     sample = sample[feature_names]
@@ -152,5 +246,4 @@ if st.button("🔍 Predict RTO Risk", use_container_width=True):
     )
 
 st.divider()
-
 st.caption("Developed using Python • Pandas • Scikit-learn • Streamlit")
